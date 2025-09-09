@@ -29,7 +29,7 @@ import {
   PromptInputModelSelectTrigger,
   PromptInputModelSelectContent,
 } from './elements/prompt-input';
-import { SelectItem, } from '@/components/ui/select';
+import { SelectItem } from '@/components/ui/select';
 import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -182,8 +182,13 @@ function PureMultimodalInput({
           contentType: contentType,
         };
       }
-      const { error } = await response.json();
-      toast.error(error);
+      if (response.status === 401) {
+        toast.error('Please sign in to upload files.');
+        window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+      } else {
+        const { error } = await response.json();
+        toast.error(error);
+      }
     } catch (error) {
       toast.error('Failed to upload file, please try again!');
     }

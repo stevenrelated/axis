@@ -7,7 +7,7 @@ import {
   stepCountIs,
   streamText,
 } from 'ai';
-import { auth, type UserType } from '@/app/(auth)/auth';
+import { getSupabaseSession } from '@/lib/supabase/ssr';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
 import {
   createStreamId,
@@ -27,7 +27,7 @@ import { requestSuggestions } from '@/lib/ai/tools/request-suggestions';
 import { getWeather } from '@/lib/ai/tools/get-weather';
 import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
-import { entitlementsByUserType } from '@/lib/ai/entitlements';
+import { entitlements } from '@/lib/ai/entitlements';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
 import {
@@ -87,20 +87,18 @@ export async function POST(request: Request) {
       selectedVisibilityType: VisibilityType;
     } = requestBody;
 
-    const session = await auth();
+    const session = await getSupabaseSession();
 
     if (!session?.user) {
       return new ChatSDKError('unauthorized:chat').toResponse();
     }
-
-    const userType: UserType = session.user.type;
 
     const messageCount = await getMessageCountByUserId({
       id: session.user.id,
       differenceInHours: 24,
     });
 
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerDay) {
+    if (messageCount > entitlements.maxMessagesPerDay) {
       return new ChatSDKError('rate_limit:chat').toResponse();
     }
 
@@ -255,7 +253,7 @@ export async function DELETE(request: Request) {
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
-  const session = await auth();
+  const session = await getSupabaseSession();
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:chat').toResponse();

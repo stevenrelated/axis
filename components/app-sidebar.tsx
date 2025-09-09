@@ -1,6 +1,5 @@
 'use client';
 
-import type { User } from 'next-auth';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';
@@ -18,7 +17,9 @@ import {
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export type AppUser = { id: string; email: string | null } | undefined;
+
+export function AppSidebar({ user }: { user: AppUser }) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
 
@@ -53,7 +54,9 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   <PlusIcon />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent align="end" className="hidden md:block">New Chat</TooltipContent>
+              <TooltipContent align="end" className="hidden md:block">
+                New Chat
+              </TooltipContent>
             </Tooltip>
           </div>
         </SidebarMenu>

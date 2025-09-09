@@ -15,8 +15,8 @@ import { useArtifactSelector } from '@/hooks/use-artifact';
 import { unstable_serialize } from 'swr/infinite';
 import { getChatHistoryPaginationKey } from './sidebar-history';
 import { toast } from './toast';
-import type { Session } from 'next-auth';
-import { useSearchParams } from 'next/navigation';
+import type { AppSession } from '@/lib/auth/session';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useChatVisibility } from '@/hooks/use-chat-visibility';
 import { useAutoResume } from '@/hooks/use-auto-resume';
 import { ChatSDKError } from '@/lib/errors';
@@ -38,10 +38,12 @@ export function Chat({
   initialChatModel: string;
   initialVisibilityType: VisibilityType;
   isReadonly: boolean;
-  session: Session;
+  session: AppSession | null;
   autoResume: boolean;
   initialLastContext?: LanguageModelUsage;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const { visibilityType } = useChatVisibility({
     chatId: id,
     initialVisibilityType,
@@ -94,10 +96,12 @@ export function Chat({
     },
     onError: (error) => {
       if (error instanceof ChatSDKError) {
-        toast({
-          type: 'error',
-          description: error.message,
-        });
+        if (error.message?.startsWith('You need to sign in')) {
+          toast({ type: 'error', description: 'Please sign in to continue' });
+          router.push(`/login?next=${encodeURIComponent(pathname || '/')}`);
+          return;
+        }
+        toast({ type: 'error', description: error.message });
       }
     },
   });

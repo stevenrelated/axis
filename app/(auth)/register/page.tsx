@@ -1,53 +1,42 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useActionState, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 
 import { AuthForm } from '@/components/auth-form';
 import { SubmitButton } from '@/components/submit-button';
 
-import { register, type RegisterActionState } from '../actions';
 import { toast } from '@/components/toast';
-import { useSession } from 'next-auth/react';
+import { supabaseBrowser } from '@/lib/supabase/client';
 
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next');
 
   const [email, setEmail] = useState('');
   const [isSuccessful, setIsSuccessful] = useState(false);
 
-  const [state, formAction] = useActionState<RegisterActionState, FormData>(
-    register,
-    {
-      status: 'idle',
-    },
-  );
-
-  const { update: updateSession } = useSession();
-
-  useEffect(() => {
-    if (state.status === 'user_exists') {
-      toast({ type: 'error', description: 'Account already exists!' });
-    } else if (state.status === 'failed') {
-      toast({ type: 'error', description: 'Failed to create account!' });
-    } else if (state.status === 'invalid_data') {
-      toast({
-        type: 'error',
-        description: 'Failed validating your submission!',
-      });
-    } else if (state.status === 'success') {
-      toast({ type: 'success', description: 'Account created successfully!' });
-
-      setIsSuccessful(true);
-      updateSession();
-      router.refresh();
-    }
-  }, [state, router, updateSession]);
-
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get('email') as string);
-    formAction(formData);
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const redirectTo = `${siteUrl}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`;
+    supabaseBrowser.auth
+      .signInWithOtp({
+        email: formData.get('email') as string,
+        options: { emailRedirectTo: redirectTo },
+      })
+      .then(() => {
+        setIsSuccessful(true);
+        toast({
+          type: 'success',
+          description: 'Check your email to complete sign up.',
+        });
+      })
+      .catch(() => {
+        toast({ type: 'error', description: 'Failed to send magic link.' });
+      });
   };
 
   return (
@@ -56,7 +45,7 @@ export default function Page() {
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
           <h3 className="text-xl font-semibold dark:text-zinc-50">Sign Up</h3>
           <p className="text-sm text-gray-500 dark:text-zinc-400">
-            Create an account with your email and password
+            Create an account with a magic link
           </p>
         </div>
         <AuthForm action={handleSubmit} defaultEmail={email}>

@@ -1,8 +1,11 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { auth } from '@/app/(auth)/auth';
+import { getSupabaseSession } from '@/lib/supabase/ssr';
+
+export const runtime = 'nodejs';
 
 // Use Blob instead of File since File is not available in Node.js environment
 const FileSchema = z.object({
@@ -18,7 +21,7 @@ const FileSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const session = await getSupabaseSession();
 
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -58,13 +61,13 @@ export async function POST(request: Request) {
       const yyyy = String(now.getFullYear());
       const mm = String(now.getMonth() + 1).padStart(2, '0');
       const userId = session.user.id;
-      const uuid = crypto.randomUUID();
+      const uuid = randomUUID();
       const sanitized = filename.replace(/[^a-zA-Z0-9_.-]/g, '-');
-      const objectKey = `${bucket}/${userId}/${yyyy}/${mm}/${uuid}-${sanitized}`;
+      const relativePath = `${userId}/${yyyy}/${mm}/${uuid}-${sanitized}`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(objectKey.replace(`${bucket}/`, ''), fileBuffer, {
+        .upload(relativePath, fileBuffer, {
           contentType: (file as any).type,
           upsert: false,
         });
@@ -75,11 +78,11 @@ export async function POST(request: Request) {
 
       const { data: publicUrlData } = supabase.storage
         .from(bucket)
-        .getPublicUrl(objectKey.replace(`${bucket}/`, ''));
+        .getPublicUrl(relativePath);
 
       return NextResponse.json({
         url: publicUrlData.publicUrl,
-        pathname: objectKey,
+        pathname: `${bucket}/${relativePath}`,
         contentType: (file as any).type,
       });
     } catch (error) {

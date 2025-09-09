@@ -34,8 +34,8 @@
 - Data Persistence
   - Supabase Postgres for saving chat history and user data
   - Supabase Storage for efficient file storage (attachments bucket)
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
+- Authentication
+  - Supabase Auth with magic-link sign-in
 
 ## Model Providers
 
@@ -78,10 +78,14 @@ POSTGRES_URL=postgresql://<user>:<password>@aws-0-<region>.pooler.supabase.com:6
 POSTGRES_URL_NON_POOLING=postgresql://<user>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
 
 # Supabase Project
-SUPABASE_URL=https://howgioosfxkhcuefqrdg.supabase.co
-SUPABASE_PUBLISHABLE_KEY=sb_publishable_zhVUdrBR7U632aJI9Dmd4A_b-4FyYxO
-SUPABASE_SECRET_KEY=<your-secret-key>
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+SUPABASE_SECRET_KEY=<your-service-role-key>
 SUPABASE_STORAGE_BUCKET=attachments
+
+# Client-side Supabase (Auth)
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+NEXT_PUBLIC_SITE_URL=https://axis-kappa-bice.vercel.app
 ```
 
 > Note: You should not commit your `.env` file or it will expose secrets that

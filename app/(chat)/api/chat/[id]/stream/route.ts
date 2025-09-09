@@ -1,4 +1,4 @@
-import { auth } from '@/app/(auth)/auth';
+import { getSupabaseSession } from '@/lib/supabase/ssr';
 import {
   getChatById,
   getMessagesByChatId,
@@ -28,7 +28,7 @@ export async function GET(
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
-  const session = await auth();
+  const session = await getSupabaseSession();
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:chat').toResponse();

@@ -37,23 +37,6 @@ export function AuthForm({
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label
-          htmlFor="password"
-          className="text-zinc-600 font-normal dark:text-zinc-400"
-        >
-          Password
-        </Label>
-
-        <Input
-          id="password"
-          name="password"
-          className="bg-muted text-md md:text-sm"
-          type="password"
-          required
-        />
-      </div>
-
       {children}
     </Form>
   );

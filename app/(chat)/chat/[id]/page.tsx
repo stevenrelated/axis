@@ -1,13 +1,12 @@
 import { cookies } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
-import { auth } from '@/app/(auth)/auth';
+import { getSupabaseSession } from '@/lib/supabase/ssr';
 import { Chat } from '@/components/chat';
 import { getChatById, getMessagesByChatId } from '@/lib/db/queries';
 import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 import { convertToUIMessages } from '@/lib/utils';
-import { LanguageModelV2Usage } from '@ai-sdk/provider';
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -18,18 +17,10 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     notFound();
   }
 
-  const session = await auth();
-
-  if (!session) {
-    redirect('/api/auth/guest');
-  }
+  const session = await getSupabaseSession();
 
   if (chat.visibility === 'private') {
-    if (!session.user) {
-      return notFound();
-    }
-
-    if (session.user.id !== chat.userId) {
+    if (!session?.user || session.user.id !== chat.userId) {
       return notFound();
     }
   }

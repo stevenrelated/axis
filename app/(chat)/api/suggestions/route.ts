@@ -1,4 +1,4 @@
-import { auth } from '@/app/(auth)/auth';
+import { getSupabaseSession } from '@/lib/supabase/ssr';
 import { getSuggestionsByDocumentId } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     ).toResponse();
   }
 
-  const session = await auth();
+  const session = await getSupabaseSession();
 
   if (!session?.user) {
     return new ChatSDKError('unauthorized:suggestions').toResponse();

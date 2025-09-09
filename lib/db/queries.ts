@@ -33,7 +33,8 @@ import { generateUUID } from '../utils';
 import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { ChatSDKError } from '../errors';
-import { LanguageModelV2Usage } from '@ai-sdk/provider';
+import type { LanguageModelV2Usage } from '@ai-sdk/provider';
+import { sql } from 'drizzle-orm';
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -61,6 +62,24 @@ export async function createUser(email: string, password: string) {
     return await db.insert(user).values({ email, password: hashedPassword });
   } catch (error) {
     throw new ChatSDKError('bad_request:database', 'Failed to create user');
+  }
+}
+
+export async function upsertAuthUser(id: string, email: string | null) {
+  try {
+    // Insert with provided id, update email if the row already exists
+    await db
+      .insert(user)
+      .values({ id, email: email ?? '' })
+      .onConflictDoUpdate({
+        target: user.id,
+        set: { email: sql`excluded.email` },
+      });
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to upsert auth user',
+    );
   }
 }
 
