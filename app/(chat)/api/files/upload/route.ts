@@ -1,4 +1,4 @@
-import { put } from '@vercel/blob';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -48,14 +48,40 @@ export async function POST(request: Request) {
 
     // Get filename from formData since Blob doesn't have name property
     const filename = (formData.get('file') as File).name;
-    const fileBuffer = await file.arrayBuffer();
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     try {
-      const data = await put(`${filename}`, fileBuffer, {
-        access: 'public',
-      });
+      const supabase = createSupabaseServerClient();
+      const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'attachments';
 
-      return NextResponse.json(data);
+      const now = new Date();
+      const yyyy = String(now.getFullYear());
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const userId = session.user.id;
+      const uuid = crypto.randomUUID();
+      const sanitized = filename.replace(/[^a-zA-Z0-9_.-]/g, '-');
+      const objectKey = `${bucket}/${userId}/${yyyy}/${mm}/${uuid}-${sanitized}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(objectKey.replace(`${bucket}/`, ''), fileBuffer, {
+          contentType: (file as any).type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(objectKey.replace(`${bucket}/`, ''));
+
+      return NextResponse.json({
+        url: publicUrlData.publicUrl,
+        pathname: objectKey,
+        contentType: (file as any).type,
+      });
     } catch (error) {
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
     }
