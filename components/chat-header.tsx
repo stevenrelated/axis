@@ -21,7 +21,7 @@ function PureChatHeader({
   chatId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
-  session: AppSession;
+  session: AppSession | null;
 }) {
   const router = useRouter();
   const { open } = useSidebar();

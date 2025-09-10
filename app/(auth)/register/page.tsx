@@ -2,41 +2,101 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 
 import { AuthForm } from '@/components/auth-form';
 import { SubmitButton } from '@/components/submit-button';
+import { Button } from '@/components/ui/button';
+import { LoaderIcon } from '@/components/icons';
 
 import { toast } from '@/components/toast';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
-export default function Page() {
+function RegisterInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get('next');
+  const error = searchParams.get('error');
 
   const [email, setEmail] = useState('');
-  const [isSuccessful, setIsSuccessful] = useState(false);
+  const [code, setCode] = useState('');
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleSubmit = (formData: FormData) => {
-    setEmail(formData.get('email') as string);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-    const redirectTo = `${siteUrl}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`;
-    supabaseBrowser.auth
-      .signInWithOtp({
-        email: formData.get('email') as string,
-        options: { emailRedirectTo: redirectTo },
-      })
-      .then(() => {
-        setIsSuccessful(true);
-        toast({
-          type: 'success',
-          description: 'Check your email to complete sign up.',
-        });
-      })
-      .catch(() => {
-        toast({ type: 'error', description: 'Failed to send magic link.' });
+  useEffect(() => {
+    if (error) {
+      toast({ type: 'error', description: `Error: ${error}` });
+    }
+  }, [error]);
+
+  const handleSendOtp = async (formData: FormData) => {
+    const inputEmail = formData.get('email') as string;
+    setEmail(inputEmail);
+    try {
+      localStorage.setItem('last-auth-email', inputEmail || '');
+    } catch {}
+    const { error } = await supabaseBrowser.auth.signInWithOtp({
+      email: inputEmail,
+    });
+    if (error) {
+      toast({ type: 'error', description: 'Failed to send OTP code.' });
+      return;
+    }
+    setIsOtpSent(true);
+    toast({
+      type: 'success',
+      description: 'Check your email for the OTP code.',
+    });
+  };
+
+  const handleVerifyOtp = async () => {
+    setIsVerifying(true);
+    const { error } = await supabaseBrowser.auth.verifyOtp({
+      email,
+      token: code,
+      type: 'email',
+    });
+    setIsVerifying(false);
+    if (error) {
+      toast({
+        type: 'error',
+        description: `Invalid or expired code: ${error.message}`,
       });
+      return;
+    }
+
+    // Sync session with server cookies
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabaseBrowser.auth.getSession();
+    if (sessionError || !session) {
+      toast({
+        type: 'error',
+        description: 'Failed to get session after verification.',
+      });
+      return;
+    }
+
+    const res = await fetch('/auth/api/set-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      }),
+    });
+
+    if (!res.ok) {
+      toast({ type: 'error', description: 'Failed to set server session.' });
+      return;
+    }
+
+    toast({
+      type: 'success',
+      description: 'Account created successfully!',
+    });
+    router.push('/');
   };
 
   return (
@@ -45,23 +105,67 @@ export default function Page() {
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
           <h3 className="text-xl font-semibold dark:text-zinc-50">Sign Up</h3>
           <p className="text-sm text-gray-500 dark:text-zinc-400">
-            Create an account with a magic link
+            Create an account with an OTP code
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
-          <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
-          <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
-            {'Already have an account? '}
-            <Link
-              href="/login"
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+        {!isOtpSent ? (
+          <AuthForm action={handleSendOtp} defaultEmail={email}>
+            <SubmitButton isSuccessful={false}>Send OTP Code</SubmitButton>
+            <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
+              {'Already have an account? '}
+              <Link
+                href="/login"
+                className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+              >
+                Sign in
+              </Link>
+              {' instead.'}
+            </p>
+          </AuthForm>
+        ) : (
+          <div className="flex flex-col gap-4 px-4 sm:px-16">
+            <label htmlFor="otp-code" className="text-sm font-medium">
+              Enter OTP Code
+            </label>
+            <input
+              id="otp-code"
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="border p-2 rounded"
+              placeholder="123456"
+              maxLength={6}
+            />
+            <Button
+              onClick={handleVerifyOtp}
+              disabled={isVerifying}
+              className="relative"
             >
-              Sign in
-            </Link>
-            {' instead.'}
-          </p>
-        </AuthForm>
+              Verify Code
+              {isVerifying && (
+                <span className="animate-spin absolute right-4">
+                  <LoaderIcon />
+                </span>
+              )}
+            </Button>
+            <button
+              type="button"
+              className="text-sm text-gray-500 underline"
+              onClick={() => setIsOtpSent(false)}
+            >
+              Resend OTP
+            </button>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterInner />
+    </Suspense>
   );
 }

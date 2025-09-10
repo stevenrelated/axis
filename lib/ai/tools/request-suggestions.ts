@@ -69,7 +69,7 @@ export const requestSuggestions = ({
         suggestions.push(suggestion);
       }
 
-      if (session.user?.id) {
+      if (session?.user?.id) {
         const userId = session.user.id;
 
         await saveSuggestions({

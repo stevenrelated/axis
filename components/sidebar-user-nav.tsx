@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useRouter } from 'next/navigation';
+import { supabaseBrowser } from '@/lib/supabase/client';
 import { toast } from './toast';
 // import { LoaderIcon } from './icons';
 
@@ -69,15 +70,15 @@ export function SidebarUserNav({
               <button
                 type="button"
                 className="w-full cursor-pointer"
-                onClick={() => {
-                  fetch('/auth/signout', { method: 'POST' })
-                    .then(() => router.refresh())
-                    .catch(() =>
-                      toast({
-                        type: 'error',
-                        description: 'Failed to sign out',
-                      }),
-                    );
+                onClick={async () => {
+                  const { error } = await supabaseBrowser.auth.signOut();
+                  if (error) {
+                    toast({ type: 'error', description: 'Failed to sign out' });
+                  } else {
+                    toast({ type: 'success', description: 'Signed out' });
+                    router.push('/login');
+                    router.refresh();
+                  }
                 }}
               >
                 {'Sign out'}
