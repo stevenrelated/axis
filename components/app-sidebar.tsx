@@ -1,11 +1,9 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-
-import { PlusIcon } from '@/components/icons';
+import { BrandIcon } from '@/components/icons';
 import { SidebarHistory } from '@/components/sidebar-history';
+import { SidebarToggle } from '@/components/sidebar-toggle';
 import { SidebarUserNav } from '@/components/sidebar-user-nav';
-import { Button } from '@/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
@@ -15,16 +13,14 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 export type AppUser = { id: string; email: string | null } | undefined;
 
 export function AppSidebar({ user }: { user: AppUser }) {
-  const router = useRouter();
-  const { setOpenMobile } = useSidebar();
+  const { open, setOpenMobile } = useSidebar();
 
   return (
-    <Sidebar className="group-data-[side=left]:border-r-0">
+    <Sidebar className="border-r [&>[data-sidebar=sidebar]]:bg-brand/10">
       <SidebarHeader>
         <SidebarMenu>
           <div className="flex flex-row justify-between items-center">
@@ -35,32 +31,18 @@ export function AppSidebar({ user }: { user: AppUser }) {
               }}
               className="flex flex-row gap-3 items-center"
             >
-              <span className="text-lg font-semibold px-2 hover:bg-muted rounded-md cursor-pointer">
-                Chatbot
-              </span>
+              <div className="flex items-center gap-2 px-2 hover:bg-muted rounded-md cursor-pointer">
+                <span className="text-current">
+                  <BrandIcon size={36} />
+                </span>
+              </div>
             </Link>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  className="p-1 h-8 md:p-2 md:h-fit"
-                  onClick={() => {
-                    setOpenMobile(false);
-                    router.push('/');
-                    router.refresh();
-                  }}
-                >
-                  <PlusIcon />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent align="end" className="hidden md:block">
-                New Chat
-              </TooltipContent>
-            </Tooltip>
+            {open && <SidebarToggle />}
           </div>
         </SidebarMenu>
       </SidebarHeader>
+      {/* Add spacing between header and content */}
+      <div className="h-2" />
       <SidebarContent>
         <SidebarHistory user={user} />
       </SidebarContent>

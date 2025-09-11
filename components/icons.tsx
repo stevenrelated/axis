@@ -1,21 +1,68 @@
-export const BotIcon = () => {
+import React from 'react';
+
+export const BrandIcon = ({ size = 64 }: { size?: number }) => (
+  <img
+    src="https://howgioosfxkhcuefqrdg.supabase.co/storage/v1/object/public/brand/cloud-sky.svg"
+    alt="Brand Icon"
+    width={size}
+    height={size}
+    style={{ color: 'currentcolor' }}
+  />
+);
+
+// Brand Logo URLs
+// Light mode: dark blue logo
+const BRAND_LOGO_LIGHT =
+  'https://howgioosfxkhcuefqrdg.supabase.co/storage/v1/object/public/brand/cozey_logo_dark_blue.svg';
+// Dark mode: light blue logo
+const BRAND_LOGO_DARK =
+  'https://howgioosfxkhcuefqrdg.supabase.co/storage/v1/object/public/brand/cozey_logo_light_blue.svg';
+
+// BrandLogo component - applies pure white filter on dark mode
+export const BrandLogo = ({ size = 64 }: { size?: number }) => {
   return (
-    <svg
-      height="16"
-      strokeLinejoin="round"
-      viewBox="0 0 16 16"
-      width="16"
-      style={{ color: 'currentcolor' }}
-    >
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M8.75 2.79933C9.19835 2.53997 9.5 2.05521 9.5 1.5C9.5 0.671573 8.82843 0 8 0C7.17157 0 6.5 0.671573 6.5 1.5C6.5 2.05521 6.80165 2.53997 7.25 2.79933V5H7C4.027 5 1.55904 7.16229 1.08296 10H0V13H1V14.5V16H2.5H13.5H15V14.5V13H16V10H14.917C14.441 7.16229 11.973 5 9 5H8.75V2.79933ZM7 6.5C4.51472 6.5 2.5 8.51472 2.5 11V14.5H13.5V11C13.5 8.51472 11.4853 6.5 9 6.5H7ZM7.25 11.25C7.25 12.2165 6.4665 13 5.5 13C4.5335 13 3.75 12.2165 3.75 11.25C3.75 10.2835 4.5335 9.5 5.5 9.5C6.4665 9.5 7.25 10.2835 7.25 11.25ZM10.5 13C11.4665 13 12.25 12.2165 12.25 11.25C12.25 10.2835 11.4665 9.5 10.5 9.5C9.5335 9.5 8.75 10.2835 8.75 11.25C8.75 12.2165 9.5335 13 10.5 13Z"
-        fill="currentColor"
+    <span>
+      <img
+        src={BRAND_LOGO_LIGHT}
+        alt="Brand Logo"
+        width={size}
+        height={size}
+        className="block dark:hidden"
+        style={{ color: 'currentcolor' }}
       />
-    </svg>
+      <img
+        src={BRAND_LOGO_DARK}
+        alt="Brand Logo"
+        width={size}
+        height={size}
+        className="hidden dark:block"
+        // This filter makes the image pure white in dark mode
+        style={{
+          color: 'currentcolor',
+          filter:
+            'brightness(0) saturate(100%) invert(100%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(100%) contrast(100%)',
+        }}
+      />
+    </span>
   );
 };
+
+export const BotIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    height={size}
+    strokeLinejoin="round"
+    viewBox="0 0 16 16"
+    width={size}
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M8.75 2.79933C9.19835 2.53997 9.5 2.05521 9.5 1.5C9.5 0.671573 8.82843 0 8 0C7.17157 0 6.5 0.671573 6.5 1.5C6.5 2.05521 6.80165 2.53997 7.25 2.79933V5H7C4.027 5 1.55904 7.16229 1.08296 10H0V13H1V14.5V16H2.5H13.5H15V14.5V13H16V10H14.917C14.441 7.16229 11.973 5 9 5H8.75V2.79933ZM7 6.5C4.51472 6.5 2.5 8.51472 2.5 11V14.5H13.5V11C13.5 8.51472 11.4853 6.5 9 6.5H7ZM7.25 11.25C7.25 12.2165 6.4665 13 5.5 13C4.5335 13 3.75 12.2165 3.75 11.25C3.75 10.2835 4.5335 9.5 5.5 9.5C6.4665 9.5 7.25 10.2835 7.25 11.25ZM10.5 13C11.4665 13 12.25 12.2165 12.25 11.25C12.25 10.2835 11.4665 9.5 10.5 9.5C9.5335 9.5 8.75 10.2835 8.75 11.25C8.75 12.2165 9.5335 13 10.5 13Z"
+      fill="currentColor"
+    />
+  </svg>
+);
 
 export const UserIcon = () => {
   return (
@@ -695,6 +742,47 @@ export const DeltaIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
+export const CpuIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    style={{ color: 'currentcolor' }}
+  >
+    <path
+      d="M4 12C4 8.22876 4 6.34315 5.17157 5.17157C6.34315 4 8.22876 4 12 4C15.7712 4 17.6569 4 18.8284 5.17157C20 6.34315 20 8.22876 20 12C20 15.7712 20 17.6569 18.8284 18.8284C17.6569 20 15.7712 20 12 20C8.22876 20 6.34315 20 5.17157 18.8284C4 17.6569 4 15.7712 4 12Z"
+      strokeLinejoin="round"
+    />
+    <path d="M9.5 2V4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14.5 2V4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M9.5 20V22" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M14.5 20V22" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M13 9L9 13" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M15 13L13 15" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M22 14.5L20 14.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4 9.5L2 9.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4 14.5L2 14.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M22 9.5L20 9.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const CloudIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 128 80"
+    fill="currentColor"
+    stroke="none"
+    style={{ color: 'currentcolor' }}
+  >
+    <path d="M28 75c-10 0-18-7.5-18-16.5 0-8.2 6.2-15.8 15.8-15.2C26.2 2.5 60 20 50.5 5c1.084 0 22.43 9.94 32.77 28.046C100.02 30.29 110 41.7 110 54c0 12.15-9.85 22-22 22H38C12.9 76 28 71.523 28 66z" />
+  </svg>
+);
+//74c from 66c
+//
 export const PenIcon = ({ size = 16 }: { size?: number }) => (
   <svg
     height={size}
@@ -868,6 +956,28 @@ export const CheckCircleFillIcon = ({ size = 16 }: { size?: number }) => {
         clipRule="evenodd"
         d="M16 8C16 12.4183 12.4183 16 8 16C3.58172 16 0 12.4183 0 8C0 3.58172 3.58172 0 8 0C12.4183 0 16 3.58172 16 8ZM11.5303 6.53033L12.0607 6L11 4.93934L10.4697 5.46967L6.5 9.43934L5.53033 8.46967L5 7.93934L3.93934 9L4.46967 9.53033L5.96967 11.0303C6.26256 11.3232 6.73744 11.3232 7.03033 11.0303L11.5303 6.53033Z"
         fill="currentColor"
+      />
+    </svg>
+  );
+};
+
+export const CheckCircleIcon = ({ size = 16 }: { size?: number }) => {
+  return (
+    <svg
+      height={size}
+      strokeLinejoin="round"
+      viewBox="0 0 16 16"
+      width={size}
+      style={{ color: 'currentcolor' }}
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 0 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+        strokeLinecap="round"
       />
     </svg>
   );

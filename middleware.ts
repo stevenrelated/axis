@@ -12,6 +12,15 @@ export async function middleware(request: NextRequest) {
     return new Response('pong', { status: 200 });
   }
 
+  // Check authentication for protected routes
+  if (pathname === '/' || pathname.startsWith('/chat/')) {
+    const supabase = await getSupabaseServerClient();
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+
   if (['/login', '/register'].includes(pathname)) {
     const supabase = await getSupabaseServerClient();
     const { data } = await supabase.auth.getUser();

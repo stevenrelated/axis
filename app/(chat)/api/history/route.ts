@@ -2,6 +2,7 @@ import { getSupabaseSession } from '@/lib/supabase/ssr';
 import type { NextRequest } from 'next/server';
 import { getChatsByUserId } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
+import { unstable_cache } from 'next/cache';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -23,12 +24,25 @@ export async function GET(request: NextRequest) {
     return new ChatSDKError('unauthorized:chat').toResponse();
   }
 
-  const chats = await getChatsByUserId({
-    id: session.user.id,
-    limit,
-    startingAfter,
-    endingBefore,
-  });
+  const getCachedHistory = unstable_cache(
+    async () =>
+      getChatsByUserId({
+        id: session.user.id,
+        limit,
+        startingAfter,
+        endingBefore,
+      }),
+    [
+      'history-by-user',
+      session.user.id,
+      String(limit),
+      startingAfter ?? '',
+      endingBefore ?? '',
+    ],
+    { tags: ['history', session.user.id], revalidate: 60 },
+  );
+
+  const chats = await getCachedHistory();
 
   return Response.json(chats);
 }

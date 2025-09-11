@@ -129,16 +129,11 @@ const PurePreviewMessage = ({
                     <MessageContent
                       data-testid="message-content"
                       className={cn({
-                        'rounded-2xl px-3 py-2 break-words text-white text-right w-fit':
+                        'rounded-3xl px-3 py-2 break-words bg-brand/20 text-primary text-left w-fit':
                           message.role === 'user',
                         'bg-transparent px-0 py-0 text-left':
                           message.role === 'assistant',
                       })}
-                      style={
-                        message.role === 'user'
-                          ? { backgroundColor: '#006cff' }
-                          : undefined
-                      }
                     >
                       <Response>{sanitizeText(part.text)}</Response>
                     </MessageContent>
@@ -317,7 +312,7 @@ export const ThinkingMessage = () => {
         </div>
 
         <div className="flex flex-col gap-2 w-full md:gap-4">
-          <div className="p-0 text-sm text-muted-foreground">
+          <div className="p-0 text-base text-muted-foreground">
             <LoadingText>Thinking...</LoadingText>
           </div>
         </div>

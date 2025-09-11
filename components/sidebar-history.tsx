@@ -3,7 +3,7 @@
 import { isToday, isYesterday, subMonths, subWeeks } from 'date-fns';
 import { useParams, useRouter } from 'next/navigation';
 import type { AppUser } from '@/components/app-sidebar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
@@ -20,13 +20,25 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
   useSidebar,
 } from '@/components/ui/sidebar';
 import type { Chat } from '@/lib/db/schema';
-import { fetcher } from '@/lib/utils';
+import {
+  fetcher,
+  getCachedSidebarHistory,
+  setCachedSidebarHistory,
+} from '@/lib/utils';
 import { ChatItem } from './sidebar-history-item';
 import useSWRInfinite from 'swr/infinite';
-import { LoaderIcon } from './icons';
+import {
+  LoaderIcon,
+  PlusIcon,
+  ImageIcon,
+  BotIcon,
+  CheckCircleIcon,
+} from './icons';
 
 type GroupedChats = {
   today: Chat[];
@@ -41,7 +53,7 @@ export interface ChatHistory {
   hasMore: boolean;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50; // Increased for better lazy loading performance
 
 const groupChatsByDate = (chats: Chat[]): GroupedChats => {
   const now = new Date();
@@ -94,8 +106,14 @@ export function getChatHistoryPaginationKey(
 }
 
 export function SidebarHistory({ user }: { user: AppUser }) {
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, isMobile } = useSidebar();
   const { id } = useParams();
+
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const {
     data: paginatedChatHistories,
@@ -104,12 +122,49 @@ export function SidebarHistory({ user }: { user: AppUser }) {
     isLoading,
     mutate,
   } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
+    // Use cached data only after hydration to prevent SSR mismatch
     fallbackData: [],
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    revalidateIfStale: false,
+    dedupingInterval: 60000, // Increased to 60 seconds
+    onSuccess: (data) => {
+      if (user && data.length > 0 && hasMounted) {
+        setCachedSidebarHistory(data);
+      }
+    },
   });
+
+  // After mount, try to use cached data if available
+  useEffect(() => {
+    if (
+      hasMounted &&
+      user &&
+      (!paginatedChatHistories || paginatedChatHistories.length === 0)
+    ) {
+      const cached = getCachedSidebarHistory();
+      if (cached && cached.length > 0) {
+        mutate(cached, false);
+      }
+    }
+  }, [hasMounted, user, paginatedChatHistories?.length, mutate]);
 
   const router = useRouter();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
+  // Ensure we fetch after login hydration: if empty on mount, revalidate once
+  useEffect(() => {
+    if (
+      !isLoading &&
+      paginatedChatHistories &&
+      paginatedChatHistories.length === 0
+    ) {
+      mutate();
+    }
+    // We intentionally run this once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hasReachedEnd = paginatedChatHistories
     ? paginatedChatHistories.some((page) => page.hasMore === false)
@@ -148,201 +203,260 @@ export function SidebarHistory({ user }: { user: AppUser }) {
     }
   };
 
-  if (!user) {
-    return (
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <div className="flex flex-row gap-2 justify-center items-center px-2 w-full text-sm text-zinc-500">
-            Login to save and revisit previous chats!
-          </div>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <SidebarGroup>
-        <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
-          Today
-        </div>
-        <SidebarGroupContent>
-          <div className="flex flex-col">
-            {[44, 32, 28, 64, 52].map((item) => (
-              <div
-                key={item}
-                className="flex gap-2 items-center px-2 h-8 rounded-md"
-              >
-                <div
-                  className="h-4 rounded-md flex-1 max-w-[--skeleton-width] bg-sidebar-accent-foreground/10"
-                  style={
-                    {
-                      '--skeleton-width': `${item}%`,
-                    } as React.CSSProperties
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    );
-  }
-
-  if (hasEmptyChatHistory) {
-    return (
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <div className="flex flex-row gap-2 justify-center items-center px-2 w-full text-sm text-zinc-500">
-            Your conversations will appear here once you start chatting!
-          </div>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    );
-  }
-
   return (
     <>
       <SidebarGroup>
         <SidebarGroupContent>
           <SidebarMenu>
-            {paginatedChatHistories &&
-              (() => {
-                const chatsFromHistory = paginatedChatHistories.flatMap(
-                  (paginatedChatHistory) => paginatedChatHistory.chats,
-                );
+            {/* New Chat Button - Always visible */}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  setOpenMobile(false);
+                  router.push('/?new=1');
+                }}
+              >
+                <PlusIcon />
+                <span>New Chat</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
 
-                const groupedChats = groupChatsByDate(chatsFromHistory);
+            {/* Assistants Button - Always visible */}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  setOpenMobile(false);
+                  router.push('/'); // Navigate to home for now
+                }}
+              >
+                <BotIcon />
+                <span>Assistants</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
 
-                return (
-                  <div className="flex flex-col gap-6">
-                    {groupedChats.today.length > 0 && (
-                      <div>
-                        <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
-                          Today
-                        </div>
-                        {groupedChats.today.map((chat) => (
-                          <ChatItem
-                            key={chat.id}
-                            chat={chat}
-                            isActive={chat.id === id}
-                            onDelete={(chatId) => {
-                              setDeleteId(chatId);
-                              setShowDeleteDialog(true);
-                            }}
-                            setOpenMobile={setOpenMobile}
-                          />
-                        ))}
+            {/* Tasks Button - Always visible */}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  setOpenMobile(false);
+                  router.push('/'); // Navigate to home for now
+                }}
+              >
+                <CheckCircleIcon />
+                <span>Tasks</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            {/* Image Playground Button - Always visible */}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  setOpenMobile(false);
+                  router.push('/image-playground'); // Assuming this route exists
+                }}
+              >
+                <ImageIcon />
+                <span>Image Playground</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+
+            {/* Divider between buttons and history list */}
+            <div className="mx-2 my-3 border-t border-primary/15" />
+
+            {/* Spacer between divider and history list */}
+            <div className="mb-2" />
+
+            {!user ? (
+              <div className="flex flex-row gap-2 justify-center items-center px-2 w-full text-sm text-zinc-500">
+                Login to save and revisit previous chats!
+              </div>
+            ) : (
+              <>
+                {!hasMounted || isLoading ? (
+                  <div className="flex flex-col">
+                    {[44, 32, 28, 64, 52].map((item) => (
+                      <div
+                        key={item}
+                        className="flex gap-2 items-center px-2 h-8 rounded-md"
+                      >
+                        <div
+                          className="h-4 rounded-md flex-1 max-w-[--skeleton-width] bg-sidebar-accent-foreground/10"
+                          style={
+                            {
+                              '--skeleton-width': `${item}%`,
+                            } as React.CSSProperties
+                          }
+                        />
                       </div>
-                    )}
-
-                    {groupedChats.yesterday.length > 0 && (
-                      <div>
-                        <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
-                          Yesterday
-                        </div>
-                        {groupedChats.yesterday.map((chat) => (
-                          <ChatItem
-                            key={chat.id}
-                            chat={chat}
-                            isActive={chat.id === id}
-                            onDelete={(chatId) => {
-                              setDeleteId(chatId);
-                              setShowDeleteDialog(true);
-                            }}
-                            setOpenMobile={setOpenMobile}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {groupedChats.lastWeek.length > 0 && (
-                      <div>
-                        <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
-                          Last 7 days
-                        </div>
-                        {groupedChats.lastWeek.map((chat) => (
-                          <ChatItem
-                            key={chat.id}
-                            chat={chat}
-                            isActive={chat.id === id}
-                            onDelete={(chatId) => {
-                              setDeleteId(chatId);
-                              setShowDeleteDialog(true);
-                            }}
-                            setOpenMobile={setOpenMobile}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {groupedChats.lastMonth.length > 0 && (
-                      <div>
-                        <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
-                          Last 30 days
-                        </div>
-                        {groupedChats.lastMonth.map((chat) => (
-                          <ChatItem
-                            key={chat.id}
-                            chat={chat}
-                            isActive={chat.id === id}
-                            onDelete={(chatId) => {
-                              setDeleteId(chatId);
-                              setShowDeleteDialog(true);
-                            }}
-                            setOpenMobile={setOpenMobile}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {groupedChats.older.length > 0 && (
-                      <div>
-                        <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
-                          Older than last month
-                        </div>
-                        {groupedChats.older.map((chat) => (
-                          <ChatItem
-                            key={chat.id}
-                            chat={chat}
-                            isActive={chat.id === id}
-                            onDelete={(chatId) => {
-                              setDeleteId(chatId);
-                              setShowDeleteDialog(true);
-                            }}
-                            setOpenMobile={setOpenMobile}
-                          />
-                        ))}
-                      </div>
-                    )}
+                    ))}
                   </div>
-                );
-              })()}
+                ) : hasMounted && hasEmptyChatHistory ? (
+                  <div className="flex flex-row gap-2 justify-center items-center px-2 w-full text-sm text-zinc-500">
+                    Your conversations will appear here once you start chatting!
+                  </div>
+                ) : (
+                  paginatedChatHistories &&
+                  (() => {
+                    const chatsFromHistory = paginatedChatHistories.flatMap(
+                      (paginatedChatHistory) => paginatedChatHistory.chats,
+                    );
+
+                    const groupedChats = groupChatsByDate(chatsFromHistory);
+
+                    return (
+                      <div className="flex flex-col gap-6">
+                        {groupedChats.today.length > 0 && (
+                          <div>
+                            <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
+                              Today
+                            </div>
+                            {groupedChats.today.map((chat) => (
+                              <ChatItem
+                                key={chat.id}
+                                chat={chat}
+                                isActive={chat.id === id}
+                                onDelete={(chatId) => {
+                                  setDeleteId(chatId);
+                                  setShowDeleteDialog(true);
+                                }}
+                                setOpenMobile={setOpenMobile}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {groupedChats.yesterday.length > 0 && (
+                          <div>
+                            <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
+                              Yesterday
+                            </div>
+                            {groupedChats.yesterday.map((chat) => (
+                              <ChatItem
+                                key={chat.id}
+                                chat={chat}
+                                isActive={chat.id === id}
+                                onDelete={(chatId) => {
+                                  setDeleteId(chatId);
+                                  setShowDeleteDialog(true);
+                                }}
+                                setOpenMobile={setOpenMobile}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {groupedChats.lastWeek.length > 0 && (
+                          <div>
+                            <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
+                              Last 7 days
+                            </div>
+                            {groupedChats.lastWeek.map((chat) => (
+                              <ChatItem
+                                key={chat.id}
+                                chat={chat}
+                                isActive={chat.id === id}
+                                onDelete={(chatId) => {
+                                  setDeleteId(chatId);
+                                  setShowDeleteDialog(true);
+                                }}
+                                setOpenMobile={setOpenMobile}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {groupedChats.lastMonth.length > 0 && (
+                          <div>
+                            <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
+                              Last 30 days
+                            </div>
+                            {groupedChats.lastMonth.map((chat) => (
+                              <ChatItem
+                                key={chat.id}
+                                chat={chat}
+                                isActive={chat.id === id}
+                                onDelete={(chatId) => {
+                                  setDeleteId(chatId);
+                                  setShowDeleteDialog(true);
+                                }}
+                                setOpenMobile={setOpenMobile}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {groupedChats.older.length > 0 && (
+                          <div>
+                            <div className="px-2 py-1 text-xs text-sidebar-foreground/50">
+                              Older than last month
+                            </div>
+                            {groupedChats.older.map((chat) => (
+                              <ChatItem
+                                key={chat.id}
+                                chat={chat}
+                                isActive={chat.id === id}
+                                onDelete={(chatId) => {
+                                  setDeleteId(chatId);
+                                  setShowDeleteDialog(true);
+                                }}
+                                setOpenMobile={setOpenMobile}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
+              </>
+            )}
           </SidebarMenu>
 
-          <motion.div
-            onViewportEnter={() => {
-              if (!isValidating && !hasReachedEnd) {
-                setSize((size) => size + 1);
-              }
-            }}
-          />
+          {user && hasMounted && !isLoading && (
+            <>
+              <motion.div
+                onViewportEnter={() => {
+                  if (!isValidating && !hasReachedEnd) {
+                    setSize((size) => size + 1);
+                  }
+                }}
+              />
 
-          {hasReachedEnd ? (
-            <div className="flex flex-row gap-2 justify-center items-center px-2 mt-8 w-full text-sm text-zinc-500">
-              You have reached the end of your chat history.
-            </div>
-          ) : (
-            <div className="flex flex-row gap-2 items-center p-2 mt-8 text-zinc-500 dark:text-zinc-400">
-              <div className="animate-spin">
-                <LoaderIcon />
-              </div>
-              <div>Loading Chats...</div>
-            </div>
+              {(() => {
+                // Calculate total number of chats
+                const totalChats =
+                  paginatedChatHistories?.flatMap((page) => page.chats)
+                    .length || 0;
+                const minChatsThreshold = isMobile ? 16 : 32;
+
+                // Show loading only when there are more chats to load
+                if (!hasReachedEnd) {
+                  return (
+                    <div className="flex flex-row gap-2 items-center p-2 mt-8 text-zinc-500 dark:text-zinc-400">
+                      <div className="animate-spin">
+                        <LoaderIcon />
+                      </div>
+                      <div>Loading Chats...</div>
+                    </div>
+                  );
+                }
+
+                // Show "end of history" only when we've reached the end AND have enough chats
+                if (hasReachedEnd && totalChats >= minChatsThreshold) {
+                  return (
+                    <div className="flex flex-row gap-2 justify-center items-center px-2 mt-8 w-full text-sm text-zinc-500">
+                      You have reached the end of your chat history.
+                    </div>
+                  );
+                }
+
+                // If we've reached the end but don't have enough chats, show nothing
+                return null;
+              })()}
+            </>
           )}
         </SidebarGroupContent>
       </SidebarGroup>
-
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

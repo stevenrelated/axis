@@ -2,7 +2,7 @@
 
 import { ChevronUp } from 'lucide-react';
 import Image from 'next/image';
-import { useTheme } from 'next-themes';
+// import { useTheme } from 'next-themes';
 
 import {
   DropdownMenu,
@@ -25,7 +25,7 @@ export function SidebarUserNav({
   user,
 }: { user: { id: string; email: string | null } }) {
   const router = useRouter();
-  const { setTheme, resolvedTheme } = useTheme();
+  // const { setTheme, resolvedTheme } = useTheme();
 
   const isGuest = false;
 
@@ -36,7 +36,7 @@ export function SidebarUserNav({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               data-testid="user-nav-button"
-              className="data-[state=open]:bg-sidebar-accent bg-background data-[state=open]:text-sidebar-accent-foreground h-10"
+              className="data-[state=open]:bg-sidebar-accent bg-background data-[state=open]:text-sidebar-accent-foreground h-10 rounded-xl"
             >
               <Image
                 src={`https://avatar.vercel.sh/${user.email}`}
@@ -56,15 +56,20 @@ export function SidebarUserNav({
             side="top"
             className="w-[--radix-popper-anchor-width]"
           >
-            <DropdownMenuItem
-              data-testid="user-nav-item-theme"
-              className="cursor-pointer"
-              onSelect={() =>
-                setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
-              }
-            >
-              {`Toggle ${resolvedTheme === 'light' ? 'dark' : 'light'} mode`}
-            </DropdownMenuItem>
+            {/**
+             * Theme toggle temporarily disabled to enforce system theme as the single source of truth.
+             * If re-enabling, remove comments below and import/use `useTheme`.
+             *
+             * <DropdownMenuItem
+             *   data-testid="user-nav-item-theme"
+             *   className="cursor-pointer"
+             *   onSelect={() =>
+             *     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+             *   }
+             * >
+             *   {`Toggle ${resolvedTheme === 'light' ? 'dark' : 'light'} mode`}
+             * </DropdownMenuItem>
+             */}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { AppSession } from '@/lib/auth/session';
-import { upsertAuthUser } from '@/lib/db/queries';
+import { cache } from 'react';
 
 function getAnonEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,17 +58,17 @@ export function getSupabaseRouteClient(
   });
 }
 
-export async function getSupabaseSession(): Promise<AppSession | null> {
-  const supabase = await getSupabaseServerClient();
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
-  if (!user) return null;
+export const getSupabaseSession = cache(
+  async (): Promise<AppSession | null> => {
+    const supabase = await getSupabaseServerClient();
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user) return null;
 
-  // Ensure we have a local user row
-  const email = user.email ?? null;
-  await upsertAuthUser(user.id, email);
+    const email = user.email ?? null;
 
-  return {
-    user: { id: user.id, email, type: 'regular' },
-  } satisfies AppSession;
-}
+    return {
+      user: { id: user.id, email, type: 'regular' },
+    } satisfies AppSession;
+  },
+);

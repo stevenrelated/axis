@@ -7,8 +7,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://chat.vercel.ai'),
-  title: 'Next.js Chatbot Template',
-  description: 'Next.js chatbot template using the AI SDK.',
+  title: 'Cozey | Modern Living Made Simple',
+  description: 'AI System for Cozey',
 };
 
 export const viewport = {
@@ -28,7 +28,16 @@ const geistMono = Geist_Mono({
 });
 
 const LIGHT_THEME_COLOR = 'hsl(0 0% 100%)';
-const DARK_THEME_COLOR = 'hsl(240deg 10% 3.92%)';
+const DARK_THEME_COLOR = 'hsl(240 3.7% 15.9%)';
+const SYSTEM_THEME_SCRIPT = `\
+(function() {
+  try {
+    var d = document.documentElement;
+    var m = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (m && m.matches) d.classList.add('dark'); else d.classList.remove('dark');
+    try { localStorage.removeItem('theme'); } catch (_) {}
+  } catch (_) {}
+})();`;
 const THEME_COLOR_SCRIPT = `\
 (function() {
   var html = document.documentElement;
@@ -65,6 +74,11 @@ export default async function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
+            __html: SYSTEM_THEME_SCRIPT,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
             __html: THEME_COLOR_SCRIPT,
           }}
         />
@@ -74,6 +88,8 @@ export default async function RootLayout({
           attribute="class"
           defaultTheme="system"
           enableSystem
+          enableColorScheme
+          storageKey="theme-system"
           disableTransitionOnChange
         >
           <Toaster position="top-center" />

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { unstable_cache } from 'next/cache';
 
 import { getSupabaseSession } from '@/lib/supabase/ssr';
 import { Chat } from '@/components/chat';
@@ -8,16 +9,31 @@ import { DataStreamHandler } from '@/components/data-stream-handler';
 import { DEFAULT_CHAT_MODEL } from '@/lib/ai/models';
 import { convertToUIMessages } from '@/lib/utils';
 
+const getCachedChat = (id: string) =>
+  unstable_cache(async () => getChatById({ id }), ['chat-by-id', id], {
+    tags: ['chat', id],
+    revalidate: 60,
+  })();
+
+const getCachedMessages = (id: string) =>
+  unstable_cache(
+    async () => getMessagesByChatId({ id }),
+    ['messages-by-chat-id', id],
+    { tags: ['messages', id], revalidate: 60 },
+  )();
+
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const { id } = params;
-  const chat = await getChatById({ id });
+
+  const [chat, session] = await Promise.all([
+    getCachedChat(id),
+    getSupabaseSession(),
+  ]);
 
   if (!chat) {
     notFound();
   }
-
-  const session = await getSupabaseSession();
 
   if (chat.visibility === 'private') {
     if (!session?.user || session.user.id !== chat.userId) {
@@ -25,9 +41,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     }
   }
 
-  const messagesFromDb = await getMessagesByChatId({
-    id,
-  });
+  const messagesFromDb = await getCachedMessages(id);
 
   const uiMessages = convertToUIMessages(messagesFromDb);
 
@@ -38,6 +52,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     return (
       <>
         <Chat
+          key={chat.id}
           id={chat.id}
           initialMessages={uiMessages}
           initialChatModel={DEFAULT_CHAT_MODEL}
@@ -55,6 +70,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   return (
     <>
       <Chat
+        key={chat.id}
         id={chat.id}
         initialMessages={uiMessages}
         initialChatModel={chatModelFromCookie.value}

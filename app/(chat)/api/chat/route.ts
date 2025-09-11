@@ -19,7 +19,11 @@ import {
   saveMessages,
 } from '@/lib/db/queries';
 import { updateChatLastContextById } from '@/lib/db/queries';
-import { convertToUIMessages, generateUUID } from '@/lib/utils';
+import {
+  convertToUIMessages,
+  generateUUID,
+  getTextFromMessage,
+} from '@/lib/utils';
 import { generateTitleFromUserMessage } from '../../actions';
 import { createDocument } from '@/lib/ai/tools/create-document';
 import { updateDocument } from '@/lib/ai/tools/update-document';
@@ -35,6 +39,7 @@ import {
   type ResumableStreamContext,
 } from 'resumable-stream';
 import { after } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
@@ -105,9 +110,54 @@ export async function POST(request: Request) {
     const chat = await getChatById({ id });
 
     if (!chat) {
-      const title = await generateTitleFromUserMessage({
-        message,
-      });
+      // Robust title generation with timeout + fallback
+      const deriveFallbackTitle = (): string => {
+        try {
+          const raw = getTextFromMessage(message);
+          const sanitized = raw.replace(/["':]+/g, '');
+          const truncated = sanitized.trim().slice(0, 80);
+          return truncated || 'New chat';
+        } catch {
+          return 'New chat';
+        }
+      };
+
+      const fallbackTitle = deriveFallbackTitle();
+      const sanitize = (t: string) =>
+        t
+          .replace(/["':]+/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 80) || fallbackTitle;
+
+      const withTimeout = (p: Promise<string>, ms: number) =>
+        new Promise<string>((resolve, reject) => {
+          const to = setTimeout(() => reject(new Error('title_timeout')), ms);
+          p.then((v) => {
+            clearTimeout(to);
+            resolve(v);
+          }).catch((e) => {
+            clearTimeout(to);
+            reject(e);
+          });
+        });
+
+      let title = fallbackTitle;
+      try {
+        const TIMEOUT_MS = 2000;
+        title = sanitize(
+          await withTimeout(
+            generateTitleFromUserMessage({
+              message: {
+                id: message.id,
+                role: 'user',
+                parts: message.parts,
+              } as any,
+            }),
+            TIMEOUT_MS,
+          ),
+        );
+      } catch {}
 
       await saveChat({
         id,
@@ -208,12 +258,22 @@ export async function POST(request: Request) {
           })),
         });
 
+        try {
+          revalidateTag('messages');
+          revalidateTag('chat');
+          revalidateTag('history');
+        } catch {}
+
         if (finalUsage) {
           try {
             await updateChatLastContextById({
               chatId: id,
               context: finalUsage,
             });
+            try {
+              revalidateTag('chat');
+              revalidateTag('history');
+            } catch {}
           } catch (err) {
             console.warn('Unable to persist last usage for chat', id, err);
           }
@@ -266,6 +326,10 @@ export async function DELETE(request: Request) {
   }
 
   const deletedChat = await deleteChatById({ id });
+
+  try {
+    revalidateTag('history');
+  } catch {}
 
   return Response.json(deletedChat, { status: 200 });
 }

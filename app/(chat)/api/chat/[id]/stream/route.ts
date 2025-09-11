@@ -1,9 +1,7 @@
 import { getSupabaseSession } from '@/lib/supabase/ssr';
-import {
-  getChatById,
-  getMessagesByChatId,
-  getStreamIdsByChatId,
-} from '@/lib/db/queries';
+import { getChatById, getStreamIdsByChatId } from '@/lib/db/queries';
+import { unstable_cache } from 'next/cache';
+import { getMessagesByChatId } from '@/lib/db/queries';
 import type { Chat } from '@/lib/db/schema';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
@@ -37,7 +35,12 @@ export async function GET(
   let chat: Chat | null;
 
   try {
-    chat = await getChatById({ id: chatId });
+    const getCachedChat = unstable_cache(
+      async () => getChatById({ id: chatId }),
+      ['chat-by-id', chatId],
+      { tags: ['chat', chatId], revalidate: 60 },
+    );
+    chat = await getCachedChat();
   } catch {
     return new ChatSDKError('not_found:chat').toResponse();
   }

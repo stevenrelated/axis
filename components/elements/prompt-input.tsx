@@ -24,7 +24,7 @@ export type PromptInputProps = HTMLAttributes<HTMLFormElement>;
 export const PromptInput = ({ className, ...props }: PromptInputProps) => (
   <form
     className={cn(
-      'w-full overflow-hidden rounded-xl border bg-background shadow-sm',
+      'w-full overflow-hidden rounded-3xl border bg-background shadow-sm',
       className,
     )}
     {...props}
@@ -42,8 +42,8 @@ export const PromptInputTextarea = ({
   onChange,
   className,
   placeholder = 'What would you like to know?',
-  minHeight = 48,
-  maxHeight = 164,
+  // minHeight = 40, // Now controlled by CSS variable
+  // maxHeight = 200, // Now controlled by CSS variable
   disableAutoResize = false,
   resizeOnNewLinesOnly = false,
   ...props
@@ -73,11 +73,19 @@ export const PromptInputTextarea = ({
     <Textarea
       className={cn(
         'w-full resize-none rounded-none border-none p-3 shadow-none outline-none ring-0',
-        disableAutoResize ? 'field-sizing-fixed' : resizeOnNewLinesOnly ? 'field-sizing-fixed' : 'field-sizing-content max-h-[6lh]',
+        disableAutoResize
+          ? 'field-sizing-fixed'
+          : resizeOnNewLinesOnly
+            ? 'field-sizing-fixed'
+            : 'field-sizing-content max-h-[6lh]',
         'bg-transparent dark:bg-transparent',
         'focus-visible:ring-0',
         className,
       )}
+      style={{
+        minHeight: 'var(--input-min-height)',
+        maxHeight: 'var(--input-max-height)',
+      }}
       name="message"
       onChange={(e) => {
         onChange?.(e);
@@ -195,12 +203,41 @@ export const PromptInputModelSelectTrigger = ({
 }: PromptInputModelSelectTriggerProps) => (
   <SelectTrigger
     className={cn(
-      'border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors',
-      'hover:bg-accent hover:text-foreground [&[aria-expanded="true"]]:bg-accent [&[aria-expanded="true"]]:text-foreground',
+      'border-none bg-transparent font-medium text-foreground shadow-none transition-colors',
+      'hover:bg-accent hover:text-muted-foreground [&[aria-expanded="true"]]:bg-accent [&[aria-expanded="true"]]:text-foreground',
       className,
     )}
     {...props}
   />
+);
+
+export type PromptInputAttachmentsTriggerProps = {
+  onClick?: () => void;
+  disabled?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+};
+
+export const PromptInputAttachmentsTrigger = ({
+  onClick,
+  disabled = false,
+  className,
+  children,
+  ...props
+}: PromptInputAttachmentsTriggerProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className={cn(
+      'flex items-center justify-center rounded-md p-1.5 h-fit transition-colors duration-200',
+      'hover:bg-accent disabled:pointer-events-none disabled:opacity-50',
+      className,
+    )}
+    {...props}
+  >
+    {children}
+  </button>
 );
 
 export type PromptInputModelSelectContentProps = ComponentProps<

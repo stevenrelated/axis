@@ -21,13 +21,15 @@ export function SidebarToggle({
         <Button
           data-testid="sidebar-toggle-button"
           onClick={toggleSidebar}
-          variant="outline"
+          variant="ghost"
           className="px-1 h-8 md:px-2 md:h-fit"
         >
           <SidebarLeftIcon size={16} />
         </Button>
       </TooltipTrigger>
-      <TooltipContent align="start" className="hidden md:block">Toggle Sidebar</TooltipContent>
+      <TooltipContent align="start" className="hidden md:block">
+        Toggle Sidebar
+      </TooltipContent>
     </Tooltip>
   );
 }

@@ -65,7 +65,7 @@ export const Suggestion = ({
           </div>
           <div>{suggestion.description}</div>
           <Button
-            variant="outline"
+            variant="default"
             className="w-fit py-1.5 px-3 rounded-full"
             onClick={onApply}
           >

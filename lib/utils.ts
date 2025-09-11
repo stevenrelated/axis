@@ -55,6 +55,53 @@ export function getLocalStorage(key: string) {
   return [];
 }
 
+const CHAT_CACHE_PREFIX = 'chat:messages:';
+const HISTORY_CACHE_KEY = 'sidebar:history';
+
+export function getCachedChatMessages(
+  chatId: string,
+): Array<ChatMessage> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(`${CHAT_CACHE_PREFIX}${chatId}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as Array<ChatMessage>;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedChatMessages(
+  chatId: string,
+  messages: Array<ChatMessage>,
+) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(
+      `${CHAT_CACHE_PREFIX}${chatId}`,
+      JSON.stringify(messages),
+    );
+  } catch {}
+}
+
+export function getCachedSidebarHistory(): any[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(HISTORY_CACHE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedSidebarHistory(history: any[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(HISTORY_CACHE_KEY, JSON.stringify(history));
+  } catch {}
+}
+
 export function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

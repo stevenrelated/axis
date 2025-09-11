@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseRouteClient } from '@/lib/supabase/ssr';
+import { upsertAuthUser } from '@/lib/db/queries';
 
 export async function POST(request: NextRequest) {
   const response = NextResponse.json({ ok: true });
@@ -13,6 +14,13 @@ export async function POST(request: NextRequest) {
         type: 'magiclink',
       });
       if (error) return NextResponse.json({ ok: false }, { status: 400 });
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+        if (user) {
+          await upsertAuthUser(user.id, user.email ?? null);
+        }
+      } catch {}
       return response;
     }
 
@@ -22,6 +30,13 @@ export async function POST(request: NextRequest) {
         refresh_token: body.refresh_token,
       });
       if (error) return NextResponse.json({ ok: false }, { status: 400 });
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+        if (user) {
+          await upsertAuthUser(user.id, user.email ?? null);
+        }
+      } catch {}
       return response;
     }
   } catch {}
