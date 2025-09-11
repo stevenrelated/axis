@@ -106,7 +106,7 @@ function PureMessages({
             sendMessage &&
             selectedVisibilityType && (
               <div className="flex justify-center items-center mt-8 w-full">
-                <div className="w-full max-w-3xl">
+                <div className="w-full max-w-4xl">
                   <MultimodalInput
                     chatId={chatId}
                     input={input}

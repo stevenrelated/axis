@@ -41,6 +41,9 @@ import type { Attachment, ChatMessage } from '@/lib/types';
 import { chatModels } from '@/lib/ai/models';
 import { saveChatModelAsCookie } from '@/app/(chat)/actions';
 import { startTransition } from 'react';
+import { SlashCommandMenu } from '@/components/slash-command-menu';
+import { useSlashCommands } from '@/hooks/use-slash-commands';
+// import { searchCommands } from '@/lib/commands/registry';
 // import { getContextWindow, normalizeUsage } from 'tokenlens';
 // import { Context } from './elements/context';
 // import { myProvider } from '@/lib/ai/providers';
@@ -79,23 +82,69 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
 
-  useEffect(() => {
+  // Auto-resize textarea based on content
+  const autoResizeTextarea = useCallback(() => {
     if (textareaRef.current) {
-      adjustHeight();
+      const textarea = textareaRef.current;
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+
+      // Get CSS variable values with fallbacks
+      const computedStyle = getComputedStyle(textarea);
+      const rootStyles = getComputedStyle(document.documentElement);
+
+      // Try to get values from CSS variables first, then computed style
+      const minHeightVar = rootStyles
+        .getPropertyValue('--input-min-height')
+        .trim();
+      const maxHeightVar = rootStyles
+        .getPropertyValue('--input-max-height')
+        .trim();
+
+      const minHeight = minHeightVar
+        ? Number.parseInt(minHeightVar)
+        : Number.parseInt(computedStyle.minHeight) || 40;
+      const maxHeight = maxHeightVar
+        ? Number.parseInt(maxHeightVar)
+        : Number.parseInt(computedStyle.maxHeight) || 200;
+
+      // Calculate new height
+      const scrollHeight = textarea.scrollHeight;
+      const newHeight = Math.min(Math.max(scrollHeight, minHeight), maxHeight);
+
+      textarea.style.height = `${newHeight}px`;
     }
   }, []);
 
-  const adjustHeight = () => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'var(--input-min-height)';
-    }
-  };
+  // Auto-resize when input changes
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [input, autoResizeTextarea]);
 
-  const resetHeight = () => {
+  // Auto-resize on window resize and textarea focus (in case CSS variables change)
+  useEffect(() => {
+    const handleResize = () => {
+      autoResizeTextarea();
+    };
+
+    const handleTextareaFocus = () => {
+      // Small delay to ensure CSS is applied
+      setTimeout(() => autoResizeTextarea(), 10);
+    };
+
+    window.addEventListener('resize', handleResize);
+
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'var(--input-min-height)';
+      textareaRef.current.addEventListener('focus', handleTextareaFocus);
     }
-  };
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (textareaRef.current) {
+        textareaRef.current.removeEventListener('focus', handleTextareaFocus);
+      }
+    };
+  }, [autoResizeTextarea]);
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     'input',
@@ -108,7 +157,8 @@ function PureMultimodalInput({
       // Prefer DOM value over localStorage to handle hydration
       const finalValue = domValue || localStorageInput || '';
       setInput(finalValue);
-      adjustHeight();
+      // Auto-resize immediately after input is restored
+      autoResizeTextarea();
     }
     // Only run once after hydration
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,10 +170,15 @@ function PureMultimodalInput({
 
   const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(event.target.value);
+    // Auto-resize immediately after input change
+    autoResizeTextarea();
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
+
+  // Slash commands state
+  const slash = useSlashCommands();
 
   const submitForm = useCallback(() => {
     window.history.replaceState({}, '', `/chat/${chatId}`);
@@ -146,7 +201,6 @@ function PureMultimodalInput({
 
     setAttachments([]);
     setLocalStorageInput('');
-    resetHeight();
     setInput('');
 
     if (width && width > 768) {
@@ -294,88 +348,203 @@ function PureMultimodalInput({
         tabIndex={-1}
       />
 
-      <PromptInput
-        className="rounded-2xl shadow-sm transition-all duration-200 bg-primary/5 border-0 outline-none focus-within:ring-1 focus-within:ring-muted-foreground/50 hover:ring-1 hover:ring-muted-foreground/50"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (status !== 'ready') {
-            toast.error('Please wait for the model to finish its response!');
-          } else {
-            submitForm();
-          }
-        }}
-      >
-        {(attachments.length > 0 || uploadQueue.length > 0) && (
-          <div
-            data-testid="attachments-preview"
-            className="flex overflow-x-scroll flex-row gap-2 items-end px-3 py-2"
-          >
-            {attachments.map((attachment) => (
-              <PreviewAttachment
-                key={attachment.url}
-                attachment={attachment}
-                onRemove={() => {
-                  setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url),
-                  );
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                  }
-                }}
-              />
-            ))}
+      <div className="relative overflow-visible py-2">
+        <SlashCommandMenu
+          isOpen={slash.isOpen}
+          query={slash.query}
+          position={null}
+          commands={slash.commands}
+          selectedIndex={slash.selectedIndex}
+          onHoverIndex={(i) => slash.setSelectedIndex(i)}
+          onSelect={(cmd) => {
+            const text = `/${cmd.label} `;
+            setInput(text);
+            requestAnimationFrame(() => {
+              const el = textareaRef.current;
+              if (el) el.selectionStart = el.selectionEnd = text.length;
+            });
+            slash.close();
+            textareaRef.current?.focus();
+          }}
+          onClose={() => slash.close()}
+          fullWidthBelow
+        />
 
-            {uploadQueue.map((filename) => (
-              <PreviewAttachment
-                key={filename}
-                attachment={{
-                  url: '',
-                  name: filename,
-                  contentType: '',
-                }}
-                isUploading={true}
-              />
-            ))}
-          </div>
-        )}
-        <div className="flex flex-row gap-2 items-start">
-          <PromptInputTextarea
-            data-testid="multimodal-input"
-            ref={textareaRef}
-            placeholder="Send a message..."
-            value={input}
-            onChange={handleInput}
-            // minHeight and maxHeight now controlled by CSS variables
-            disableAutoResize={true}
-            className="!text-base flex-grow resize-none py-3 px-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] bg-transparent !border-0 !border-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none placeholder:text-muted-foreground"
-            rows={1}
-            autoFocus
-          />{' '}
-          {/* <Context {...contextProps} /> */}
-        </div>
-        <PromptInputToolbar className="px-3 py-2 !border-t-0 !border-top-0 shadow-none dark:!border-transparent dark:border-0">
-          <PromptInputTools className="gap-2">
-            <AttachmentsButton
-              fileInputRef={fileInputRef}
-              status={status}
-              selectedModelId={selectedModelId}
-            />
-            <ModelSelectorCompact selectedModelId={selectedModelId} />
-          </PromptInputTools>
-
-          {status === 'submitted' ? (
-            <StopButton stop={stop} setMessages={setMessages} />
-          ) : (
-            <PromptInputSubmit
-              status={status}
-              disabled={!input.trim() || uploadQueue.length > 0}
-              className="p-2 rounded-full transition-colors duration-200 text-brand-foreground bg-brand hover:bg-brand/50 disabled:bg-muted disabled:text-muted-foreground"
+        <PromptInput
+          className="rounded-3xl transition-all duration-200 bg-primary/5 border-0 outline-none focus-within:ring-1 focus-within:ring-muted-foreground/50 hover:ring-1 hover:ring-muted-foreground/50"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (status !== 'ready') {
+              toast.error('Please wait for the model to finish its response!');
+            } else {
+              submitForm();
+            }
+          }}
+        >
+          {(attachments.length > 0 || uploadQueue.length > 0) && (
+            <div
+              data-testid="attachments-preview"
+              className="flex overflow-x-scroll flex-row gap-2 items-end px-3 py-2"
             >
-              <ArrowUpIcon size={16} />
-            </PromptInputSubmit>
+              {attachments.map((attachment) => (
+                <PreviewAttachment
+                  key={attachment.url}
+                  attachment={attachment}
+                  onRemove={() => {
+                    setAttachments((currentAttachments) =>
+                      currentAttachments.filter(
+                        (a) => a.url !== attachment.url,
+                      ),
+                    );
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }}
+                />
+              ))}
+
+              {uploadQueue.map((filename) => (
+                <PreviewAttachment
+                  key={filename}
+                  attachment={{
+                    url: '',
+                    name: filename,
+                    contentType: '',
+                  }}
+                  isUploading={true}
+                />
+              ))}
+            </div>
           )}
-        </PromptInputToolbar>
-      </PromptInput>
+          <div className="flex flex-row gap-2 items-start">
+            <PromptInputTextarea
+              data-testid="multimodal-input"
+              ref={textareaRef}
+              placeholder="Send a message or press '/' to use slash commands"
+              value={input}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Detect opening and live filtering
+                if (value.startsWith('/')) {
+                  // Compute caret-based position
+                  const rect = textareaRef.current?.getBoundingClientRect();
+                  const offsetTop = rect ? rect.top + window.scrollY : 0;
+                  const offsetLeft = rect ? rect.left + window.scrollX : 0;
+                  if (!slash.isOpen) {
+                    slash.open(
+                      rect
+                        ? {
+                            top: offsetTop - 8,
+                            left: offsetLeft + 8,
+                            width: rect.width,
+                          }
+                        : { top: 0, left: 0 },
+                      value.slice(1),
+                    );
+                  } else {
+                    slash.setQuery(value.slice(1));
+                  }
+                } else if (slash.isOpen) {
+                  // Close when prefix is gone
+                  slash.close();
+                }
+                handleInput(e);
+              }}
+              // minHeight and maxHeight now controlled by CSS variables
+              // disableAutoResize={false} // Enable natural auto-expansion (false is default)
+              className="!text-base flex-grow resize-none py-4 px-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] bg-transparent !border-0 !border-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none placeholder:text-muted-foreground"
+              autoFocus
+              onKeyDownOverride={(e) => {
+                if (!slash.isOpen) {
+                  // Open immediately on typing '/'
+                  if (
+                    e.key === '/' &&
+                    !e.shiftKey &&
+                    !e.ctrlKey &&
+                    !e.metaKey &&
+                    !e.altKey
+                  ) {
+                    const rect = textareaRef.current?.getBoundingClientRect();
+                    const offsetTop = rect ? rect.top + window.scrollY : 0;
+                    const offsetLeft = rect ? rect.left + window.scrollX : 0;
+                    slash.open(
+                      rect
+                        ? {
+                            top: offsetTop - 8,
+                            left: offsetLeft + 8,
+                            width: rect.width,
+                          }
+                        : { top: 0, left: 0 },
+                      '',
+                    );
+                  }
+                  return false;
+                }
+
+                // When menu is open, handle navigation
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  slash.move(1);
+                  return true;
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  slash.move(-1);
+                  return true;
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  slash.close();
+                  return true;
+                }
+                if (e.key === 'Enter') {
+                  // prevent sending message when selecting a command
+                  e.preventDefault();
+                  const selected = slash.commands[slash.selectedIndex];
+                  if (selected) {
+                    // UI-only: insert command label and close
+                    const text = `/${selected.label} `;
+                    setInput(text);
+                    // Move caret to end
+                    requestAnimationFrame(() => {
+                      const el = textareaRef.current;
+                      if (el) {
+                        el.selectionStart = el.selectionEnd = text.length;
+                      }
+                    });
+                  }
+                  slash.close();
+                  return true;
+                }
+                return false;
+              }}
+            />{' '}
+            {/* <Context {...contextProps} /> */}
+          </div>
+          <PromptInputToolbar className="px-3 py-2 !border-t-0 !border-top-0 shadow-none dark:!border-transparent dark:border-0">
+            <PromptInputTools className="gap-2">
+              <AttachmentsButton
+                fileInputRef={fileInputRef}
+                status={status}
+                selectedModelId={selectedModelId}
+              />
+              <ModelSelectorCompact selectedModelId={selectedModelId} />
+            </PromptInputTools>
+
+            {status === 'submitted' ? (
+              <StopButton stop={stop} setMessages={setMessages} />
+            ) : (
+              <PromptInputSubmit
+                status={status}
+                disabled={!input.trim() || uploadQueue.length > 0}
+                className="p-2 rounded-full transition-colors duration-200 text-brand-foreground bg-brand hover:bg-brand/50 disabled:bg-muted disabled:text-muted-foreground"
+              >
+                <ArrowUpIcon size={16} />
+              </PromptInputSubmit>
+            )}
+          </PromptInputToolbar>
+        </PromptInput>
+      </div>
 
       {messages.length === 0 &&
         attachments.length === 0 &&
@@ -462,7 +631,7 @@ function PureModelSelectorCompact({
         type="button"
         className="text-xs focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:ring-0 data-[state=closed]:ring-0"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pr-1">
           <CpuIcon size={16} />
           <span>{selectedModel?.name || 'Select model'}</span>
         </div>

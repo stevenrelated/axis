@@ -1,6 +1,5 @@
 'use client';
 
-import { ChevronUp } from 'lucide-react';
 import Image from 'next/image';
 // import { useTheme } from 'next-themes';
 
@@ -16,6 +15,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { toast } from './toast';
@@ -34,22 +38,34 @@ export function SidebarUserNav({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              data-testid="user-nav-button"
-              className="data-[state=open]:bg-sidebar-accent bg-background data-[state=open]:text-sidebar-accent-foreground h-10 rounded-xl"
-            >
-              <Image
-                src={`https://avatar.vercel.sh/${user.email}`}
-                alt={user.email ?? 'User Avatar'}
-                width={24}
-                height={24}
-                className="rounded-full"
-              />
-              <span data-testid="user-email" className="truncate">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton
+                  data-testid="user-nav-button"
+                  className="data-[state=open]:bg-sidebar-accent bg-brand/0 data-[state=open]:text-sidebar-accent-foreground h-10 rounded-xl transition-all duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!p-0 [&>img]:!size-6"
+                >
+                  <Image
+                    src={`https://avatar.vercel.sh/${user.email}`}
+                    alt={user.email ?? 'User Avatar'}
+                    width={24}
+                    height={24}
+                    className="rounded-full w-6 h-6 flex-shrink-0"
+                  />
+                  <span
+                    data-testid="user-email"
+                    className="truncate group-data-[collapsible=icon]:hidden"
+                  >
+                    {user?.email}
+                  </span>
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent
+                side="right"
+                className="group-data-[collapsible=icon]:block hidden"
+              >
                 {user?.email}
-              </span>
-              <ChevronUp className="ml-auto" />
-            </SidebarMenuButton>
+              </TooltipContent>
+            </Tooltip>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             data-testid="user-nav-menu"
@@ -70,7 +86,7 @@ export function SidebarUserNav({
              *   {`Toggle ${resolvedTheme === 'light' ? 'dark' : 'light'} mode`}
              * </DropdownMenuItem>
              */}
-            <DropdownMenuSeparator />
+
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button
                 type="button"
@@ -87,6 +103,12 @@ export function SidebarUserNav({
                 }}
               >
                 {'Sign out'}
+              </button>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild data-testid="user-nav-item-settings">
+              <button type="button" className="w-full cursor-pointer">
+                {'Settings'}
               </button>
             </DropdownMenuItem>
           </DropdownMenuContent>

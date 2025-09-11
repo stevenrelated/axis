@@ -24,7 +24,7 @@ export type PromptInputProps = HTMLAttributes<HTMLFormElement>;
 export const PromptInput = ({ className, ...props }: PromptInputProps) => (
   <form
     className={cn(
-      'w-full overflow-hidden rounded-3xl border bg-background shadow-sm',
+      'w-full overflow-visible rounded-3xl border bg-background shadow-sm',
       className,
     )}
     {...props}
@@ -36,6 +36,7 @@ export type PromptInputTextareaProps = ComponentProps<typeof Textarea> & {
   maxHeight?: number;
   disableAutoResize?: boolean;
   resizeOnNewLinesOnly?: boolean;
+  onKeyDownOverride?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => boolean;
 };
 
 export const PromptInputTextarea = ({
@@ -46,9 +47,13 @@ export const PromptInputTextarea = ({
   // maxHeight = 200, // Now controlled by CSS variable
   disableAutoResize = false,
   resizeOnNewLinesOnly = false,
+  onKeyDownOverride,
   ...props
 }: PromptInputTextareaProps) => {
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+    if (onKeyDownOverride?.(e)) {
+      return;
+    }
     if (e.key === 'Enter') {
       // Don't submit if IME composition is in progress
       if (e.nativeEvent.isComposing) {
@@ -74,10 +79,10 @@ export const PromptInputTextarea = ({
       className={cn(
         'w-full resize-none rounded-none border-none p-3 shadow-none outline-none ring-0',
         disableAutoResize
-          ? 'field-sizing-fixed'
+          ? 'overflow-y-auto'
           : resizeOnNewLinesOnly
-            ? 'field-sizing-fixed'
-            : 'field-sizing-content max-h-[6lh]',
+            ? 'overflow-y-auto'
+            : 'overflow-y-hidden',
         'bg-transparent dark:bg-transparent',
         'focus-visible:ring-0',
         className,
